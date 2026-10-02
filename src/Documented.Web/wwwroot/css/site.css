@@ -36,3 +36,6 @@ select:focus{border-color:var(--accent)}
 .auth-tab{flex:1;background:transparent}
 .auth-tab.active{border-color:var(--accent);color:var(--text)}
 .hidden{display:none!important}
+
+/* Business template variants */
+.invoice.worldlight{border-top:8px solid #12151b}.invoice.worldlight .bill-to{background:#f0f1f3;border-left:4px solid #12151b}.invoice.worldlight .invoice-top h1{letter-spacing:.02em}.invoice.worldlight .invoice-footer{text-transform:none}
