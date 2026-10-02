@@ -20,7 +20,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
-
     var tenants = scope.ServiceProvider.GetRequiredService<TenantService>();
     await tenants.EnsureDefaultTenantAsync();
 }
@@ -38,28 +37,23 @@ app.UseRouting();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", app = "Documented" }));
 
 app.MapGet("/api/business", async (TenantService tenants) =>
-{
-    var tenant = await tenants.GetDefaultTenantAsync();
-    return tenant is null
-        ? Results.NotFound()
-        : Results.Ok(tenant);
-});
+    Results.Ok(await tenants.GetDefaultBusinessAsync()));
 
 app.MapPut("/api/business", async (BusinessUpdateRequest request, TenantService tenants) =>
-{
-    var updated = await tenants.UpdateDefaultBusinessAsync(request);
-    return Results.Ok(updated);
-});
+    Results.Ok(await tenants.UpdateDefaultBusinessAsync(request)));
 
 app.MapGet("/api/documents", async (DocumentService documents, int limit = 25) =>
-{
-    var results = await documents.GetRecentAsync(Math.Clamp(limit, 1, 100));
-    return Results.Ok(results);
-});
+    Results.Ok(await documents.GetRecentAsync(Math.Clamp(limit, 1, 100))));
 
 app.MapGet("/api/documents/{id:guid}", async (Guid id, DocumentService documents) =>
 {
     var document = await documents.GetAsync(id);
+    return document is null ? Results.NotFound() : Results.Ok(document);
+});
+
+app.MapGet("/api/public/{token}", async (string token, DocumentService documents) =>
+{
+    var document = await documents.GetByTokenAsync(token);
     return document is null ? Results.NotFound() : Results.Ok(document);
 });
 
