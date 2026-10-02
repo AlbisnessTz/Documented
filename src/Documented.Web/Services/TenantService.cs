@@ -4,56 +4,34 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Documented.Web.Services;
 
-public sealed class TenantService(AppDbContext db)
+public sealed class TenantService(AppDbContext db, AuthService auth)
 {
-    private static readonly Guid DefaultTenantId = Guid.Parse("8ea46da1-0b11-4afd-b726-76ba0c7dd001");
-
-    public async Task<Tenant> EnsureDefaultTenantAsync()
+    public async Task<Tenant?> GetCurrentTenantAsync()
     {
-        var tenant = await db.Tenants
+        var tenantId = auth.CurrentTenantId();
+        if (tenantId is null)
+            return null;
+
+        return await db.Tenants
             .Include(x => x.BusinessProfile)
-            .FirstOrDefaultAsync(x => x.Id == DefaultTenantId);
-
-        if (tenant is null)
-        {
-            tenant = new Tenant
-            {
-                Id = DefaultTenantId,
-                Name = "My Business",
-                Slug = "my-business",
-                BusinessProfile = new BusinessProfile
-                {
-                    TenantId = DefaultTenantId,
-                    BusinessName = "My Business"
-                }
-            };
-
-            db.Tenants.Add(tenant);
-            await db.SaveChangesAsync();
-        }
-        else if (tenant.BusinessProfile is null)
-        {
-            tenant.BusinessProfile = new BusinessProfile
-            {
-                TenantId = tenant.Id,
-                BusinessName = tenant.Name
-            };
-            await db.SaveChangesAsync();
-        }
-
-        return tenant;
+            .FirstOrDefaultAsync(x => x.Id == tenantId.Value);
     }
 
-    public async Task<BusinessProfileDto> GetDefaultBusinessAsync()
+    public async Task<BusinessProfileDto> GetCurrentBusinessAsync()
     {
-        var tenant = await EnsureDefaultTenantAsync();
-        return ToDto(tenant.BusinessProfile!);
+        var tenant = await GetCurrentTenantAsync()
+            ?? throw new InvalidOperationException("Authenticated business workspace was not found.");
+
+        return ToDto(tenant.BusinessProfile
+            ?? throw new InvalidOperationException("Business profile was not found."));
     }
 
-    public async Task<BusinessProfileDto> UpdateDefaultBusinessAsync(BusinessUpdateRequest request)
+    public async Task<BusinessProfileDto> UpdateCurrentBusinessAsync(BusinessUpdateRequest request)
     {
-        var tenant = await EnsureDefaultTenantAsync();
-        var profile = tenant.BusinessProfile!;
+        var tenant = await GetCurrentTenantAsync()
+            ?? throw new InvalidOperationException("Authenticated business workspace was not found.");
+
+        var profile = tenant.BusinessProfile ??= new BusinessProfile { TenantId = tenant.Id };
 
         profile.BusinessName = Clean(request.BusinessName, "My Business");
         profile.Address = Clean(request.Address);
@@ -68,14 +46,13 @@ public sealed class TenantService(AppDbContext db)
         profile.MobileMoneyNumber = Clean(request.MobileMoneyNumber);
         profile.InvoicePrefix = Clean(request.InvoicePrefix, "PF").ToUpperInvariant();
         profile.FooterText = Clean(request.FooterText);
+        profile.TemplateKey = request.TemplateKey is "worldlight" ? "worldlight" : "modern";
 
         tenant.Name = profile.BusinessName;
         await db.SaveChangesAsync();
 
         return ToDto(profile);
     }
-
-    public static Guid DefaultId => DefaultTenantId;
 
     private static BusinessProfileDto ToDto(BusinessProfile profile) =>
         new(
@@ -91,7 +68,8 @@ public sealed class TenantService(AppDbContext db)
             profile.MobileMoneyName,
             profile.MobileMoneyNumber,
             profile.InvoicePrefix,
-            profile.FooterText);
+            profile.FooterText,
+            profile.TemplateKey);
 
     private static string Clean(string? value, string fallback = "") =>
         string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
