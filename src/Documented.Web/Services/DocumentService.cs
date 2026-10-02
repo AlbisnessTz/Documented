@@ -8,11 +8,13 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
 {
     public async Task<List<DocumentListDto>> GetRecentAsync(int limit)
     {
-        var tenantId = TenantService.DefaultId;
+        var tenant = await tenants.GetCurrentTenantAsync();
+        if (tenant is null)
+            return [];
 
         return await db.Documents
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId)
+            .Where(x => x.TenantId == tenant.Id)
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(limit)
             .Select(x => new DocumentListDto(
@@ -28,12 +30,16 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
 
     public async Task<DocumentDetailsDto?> GetAsync(Guid id)
     {
+        var tenant = await tenants.GetCurrentTenantAsync();
+        if (tenant is null)
+            return null;
+
         var document = await db.Documents
             .AsNoTracking()
             .Include(x => x.Items)
             .Include(x => x.Tenant)
             .ThenInclude(x => x.BusinessProfile)
-            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == TenantService.DefaultId);
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenant.Id);
 
         return document is null ? null : ToDetails(document);
     }
@@ -52,23 +58,20 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
 
     public async Task<DocumentCreatedDto> CreateAsync(CreateDocumentRequest request)
     {
+        var tenant = await tenants.GetCurrentTenantAsync()
+            ?? throw new InvalidOperationException("Authenticated business workspace was not found.");
+
         if (string.IsNullOrWhiteSpace(request.CustomerName))
             throw new ArgumentException("Customer name is required.");
 
         var cleanItems = (request.Items ?? [])
             .Where(x => !string.IsNullOrWhiteSpace(x.Description) && x.Quantity > 0 && x.UnitPrice >= 0)
-            .Select(x => new
-            {
-                Description = x.Description.Trim(),
-                Quantity = x.Quantity,
-                UnitPrice = x.UnitPrice
-            })
+            .Select(x => new { Description = x.Description.Trim(), x.Quantity, x.UnitPrice })
             .ToList();
 
         if (cleanItems.Count == 0)
             throw new ArgumentException("Add at least one document item.");
 
-        var tenant = await tenants.EnsureDefaultTenantAsync();
         var prefix = string.IsNullOrWhiteSpace(tenant.BusinessProfile?.InvoicePrefix)
             ? "PF"
             : tenant.BusinessProfile.InvoicePrefix;
@@ -154,7 +157,8 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
                 business.MobileMoneyName,
                 business.MobileMoneyNumber,
                 business.InvoicePrefix,
-                business.FooterText),
+                business.FooterText,
+                business.TemplateKey),
             document.Items
                 .OrderBy(x => x.Id)
                 .Select(x => new DocumentItemDto(x.Description, x.Quantity, x.UnitPrice, x.LineTotal))
