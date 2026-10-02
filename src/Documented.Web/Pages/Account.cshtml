@@ -1,0 +1,38 @@
+@page
+@{
+    ViewData["Title"] = "Account";
+}
+
+<section class="auth-shell">
+    <div class="auth-card panel">
+        <p class="eyebrow">DOCUMENTED</p>
+        <h1 id="authTitle">Create your business account.</h1>
+        <p class="muted" id="authSubtitle">Your business gets its own workspace, settings and documents.</p>
+
+        <div class="auth-tabs">
+            <button type="button" class="auth-tab active" id="registerTab">Register</button>
+            <button type="button" class="auth-tab" id="loginTab">Login</button>
+        </div>
+
+        <form id="registerForm">
+            <label>Business name<input name="businessName" required placeholder="Your business name" /></label>
+            <label>Email<input name="email" type="email" required placeholder="name@example.com" /></label>
+            <label>Password<input name="password" type="password" minlength="8" required placeholder="At least 8 characters" /></label>
+            <button class="primary" type="submit">Create account</button>
+        </form>
+
+        <form id="loginForm" class="hidden">
+            <label>Email<input name="email" type="email" required placeholder="name@example.com" /></label>
+            <label>Password<input name="password" type="password" required placeholder="Your password" /></label>
+            <button class="primary" type="submit">Login</button>
+        </form>
+
+        <div id="authMessage" class="message" aria-live="polite"></div>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+document.addEventListener("DOMContentLoaded", () => DocumentedAuth.start());
+</script>
+}
