@@ -6,7 +6,7 @@
 <div class="page-head">
     <p class="eyebrow">Business settings</p>
     <h1>Make every document yours.</h1>
-    <p class="muted">Your business workspace is separate from every other business using Documented.</p>
+    <p class="muted">Add your real business identity once. It will appear automatically on every shareable proforma/invoice.</p>
 </div>
 
 <section class="panel narrow">
@@ -15,7 +15,22 @@
         <label>Business name<input name="businessName" required /></label>
         <label>Phone<input name="phone" /></label>
         <label>Email<input name="email" type="email" /></label>
-        <label>Logo URL<input name="logoUrl" placeholder="https://..." /></label>
+
+        <div class="wide upload-card">
+            <div>
+                <strong class="upload-title">Business logo</strong>
+                <p class="muted upload-help">Upload PNG, JPG or WebP (up to 500 KB). The logo is stored with your business profile so it can appear on public documents.</p>
+            </div>
+            <div class="upload-row">
+                <div class="logo-preview" id="logoPreview"><span>No logo</span></div>
+                <div class="upload-controls">
+                    <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" />
+                    <button class="outline" id="removeLogo" type="button">Remove logo</button>
+                    <input name="logoUrl" id="logoUrl" placeholder="Or paste a public logo URL: https://..." />
+                </div>
+            </div>
+        </div>
+
         <label class="wide">Address<input name="address" /></label>
         <label class="wide">Slogan<input name="slogan" /></label>
         <label>Document prefix<input name="invoicePrefix" maxlength="8" /></label>
@@ -25,18 +40,29 @@
                 <option value="worldlight">World Light style</option>
             </select>
         </label>
-        <label class="wide">Footer text<input name="footerText" /></label>
+        <label class="wide">Footer text<input name="footerText" placeholder="e.g. With our company, you are in good hands — Welcome" /></label>
     </div>
 
     <hr />
 
-    <h3>Payment details</h3>
+    <div class="section-label">
+        <div>
+            <p class="eyebrow">Customer-facing payment block</p>
+            <h3>Payment details</h3>
+        </div>
+        <span class="muted">These appear on the public document and in Print / Save PDF.</span>
+    </div>
+
     <div class="form-grid">
-        <label>Bank name<input name="bankName" /></label>
-        <label>Bank account number<input name="bankAccountNumber" /></label>
-        <label>Bank account name<input name="bankAccountName" /></label>
-        <label>Mobile money name<input name="mobileMoneyName" /></label>
-        <label>Mobile money number<input name="mobileMoneyNumber" /></label>
+        <label>Bank name<input name="bankName" placeholder="e.g. CRDB BANK" /></label>
+        <label>Bank account number<input name="bankAccountNumber" placeholder="e.g. 0150630455200" /></label>
+        <label>Bank account name<input name="bankAccountName" placeholder="e.g. WORLD LIGHT" /></label>
+        <label>Mobile money service<input name="mobileMoneyName" placeholder="e.g. Tigo Lipa / M-Pesa / Airtel Money" /></label>
+        <label>Mobile money number<input name="mobileMoneyNumber" placeholder="e.g. 07XXXXXXXX" /></label>
+    </div>
+
+    <div class="payment-note">
+        <strong>Template style:</strong> the generated document will show the business identity/logo at the top, customer details, document number/date, item table, payment details, totals and your footer.
     </div>
 
     <button class="primary" type="submit">Save business settings</button>
