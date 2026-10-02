@@ -50,7 +50,7 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
         return document is null ? null : ToDetails(document);
     }
 
-    public async Task<object> CreateAsync(CreateDocumentRequest request)
+    public async Task<DocumentCreatedDto> CreateAsync(CreateDocumentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.CustomerName))
             throw new ArgumentException("Customer name is required.");
@@ -69,7 +69,9 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             throw new ArgumentException("Add at least one document item.");
 
         var tenant = await tenants.EnsureDefaultTenantAsync();
-        var prefix = tenant.BusinessProfile?.InvoicePrefix ?? "PF";
+        var prefix = string.IsNullOrWhiteSpace(tenant.BusinessProfile?.InvoicePrefix)
+            ? "PF"
+            : tenant.BusinessProfile.InvoicePrefix;
 
         var usedNumbers = await db.Documents
             .Where(x => x.TenantId == tenant.Id && x.Number.StartsWith(prefix + "-"))
@@ -112,16 +114,14 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
         db.Documents.Add(document);
         await db.SaveChangesAsync();
 
-        return new
-        {
+        return new DocumentCreatedDto(
             document.Id,
             document.DocumentType,
             document.Number,
             document.PublicToken,
             document.CustomerName,
             document.Total,
-            document.CreatedAtUtc
-        };
+            document.CreatedAtUtc);
     }
 
     private static DocumentDetailsDto ToDetails(Document document)
