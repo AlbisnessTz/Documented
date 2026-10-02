@@ -59,10 +59,25 @@ window.DocumentedApp = (() => {
     $("#total").textContent = money(subtotal - discount);
   }
 
+  async function loadSessionContext() {
+    if (!navigator.onLine) return localStorage.getItem("documented.accountEmail") || "";
+    try {
+      const response = await fetch("/api/session", { cache: "no-store" });
+      if (!response.ok) return "";
+      const data = await response.json();
+      const email = data.email || "";
+      if (email) localStorage.setItem("documented.accountEmail", email);
+      return email;
+    } catch {
+      return localStorage.getItem("documented.accountEmail") || "";
+    }
+  }
+
   async function saveOffline(payload) {
     const key = "documented.offline.queue";
     const queue = JSON.parse(localStorage.getItem(key) || "[]");
-    queue.push({ ...payload, localId: crypto.randomUUID(), savedAt: new Date().toISOString() });
+    const accountEmail = localStorage.getItem("documented.accountEmail") || "";
+    queue.push({ ...payload, accountEmail, localId: crypto.randomUUID(), savedAt: new Date().toISOString() });
     localStorage.setItem(key, JSON.stringify(queue));
   }
 
@@ -71,9 +86,15 @@ window.DocumentedApp = (() => {
     const key = "documented.offline.queue";
     const queue = JSON.parse(localStorage.getItem(key) || "[]");
     if (!queue.length) return;
+    const accountEmail = await loadSessionContext();
+    if (!accountEmail) return;
 
     const remaining = [];
     for (const payload of queue) {
+      if (payload.accountEmail && payload.accountEmail !== accountEmail) {
+        remaining.push(payload);
+        continue;
+      }
       try {
         const response = await fetch("/api/documents", {
           method: "POST",
@@ -89,6 +110,7 @@ window.DocumentedApp = (() => {
 
   async function start() {
     connectionStatus();
+    await loadSessionContext();
     window.addEventListener("online", () => { connectionStatus(); syncOfflineQueue(); loadDocuments(); });
     window.addEventListener("offline", connectionStatus);
 
