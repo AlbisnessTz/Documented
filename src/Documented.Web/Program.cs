@@ -1,14 +1,27 @@
 using Documented.Web.Data;
 using Documented.Web.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account";
+        options.Cookie.Name = "Documented.Auth";
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+        options.SlidingExpiration = true;
+    });
+builder.Services.AddAuthorization();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Documented")
         ?? "Data Source=App_Data/documented.db"));
 
+builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TenantService>();
 builder.Services.AddScoped<DocumentService>();
 
@@ -20,8 +33,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
-    var tenants = scope.ServiceProvider.GetRequiredService<TenantService>();
-    await tenants.EnsureDefaultTenantAsync();
 }
 
 if (!app.Environment.IsDevelopment())
@@ -33,23 +44,69 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    var requiresAccount = context.Request.Path == "/" ||
+                          context.Request.Path.StartsWithSegments("/Setup");
+
+    if (requiresAccount && !(context.User.Identity?.IsAuthenticated ?? false))
+    {
+        context.Response.Redirect("/Account");
+        return;
+    }
+
+    await next();
+});
+
+app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", app = "Documented" }));
 
+app.MapGet("/api/session", (AuthService auth) =>
+    Results.Ok(new
+    {
+        authenticated = auth.CurrentTenantId() is not null,
+        email = auth.CurrentEmail()
+    }));
+
+app.MapPost("/api/auth/register", async (RegisterRequest request, AuthService auth) =>
+{
+    var result = await auth.RegisterAsync(request.BusinessName, request.Email, request.Password);
+    return result.Success
+        ? Results.Ok(new { message = "Account created." })
+        : Results.BadRequest(new { error = result.Error });
+});
+
+app.MapPost("/api/auth/login", async (LoginRequest request, AuthService auth) =>
+    await auth.LoginAsync(request.Email, request.Password)
+        ? Results.Ok(new { message = "Logged in." })
+        : Results.BadRequest(new { error = "Invalid email or password." }));
+
+app.MapPost("/api/auth/logout", async (AuthService auth) =>
+{
+    await auth.SignOutAsync();
+    return Results.Ok(new { message = "Logged out." });
+});
+
 app.MapGet("/api/business", async (TenantService tenants) =>
-    Results.Ok(await tenants.GetDefaultBusinessAsync()));
+    Results.Ok(await tenants.GetCurrentBusinessAsync()))
+    .RequireAuthorization();
 
 app.MapPut("/api/business", async (BusinessUpdateRequest request, TenantService tenants) =>
-    Results.Ok(await tenants.UpdateDefaultBusinessAsync(request)));
+    Results.Ok(await tenants.UpdateCurrentBusinessAsync(request)))
+    .RequireAuthorization();
 
 app.MapGet("/api/documents", async (DocumentService documents, int limit = 25) =>
-    Results.Ok(await documents.GetRecentAsync(Math.Clamp(limit, 1, 100))));
+    Results.Ok(await documents.GetRecentAsync(Math.Clamp(limit, 1, 100))))
+    .RequireAuthorization();
 
 app.MapGet("/api/documents/{id:guid}", async (Guid id, DocumentService documents) =>
 {
     var document = await documents.GetAsync(id);
     return document is null ? Results.NotFound() : Results.Ok(document);
-});
+}).RequireAuthorization();
 
 app.MapGet("/api/public/{token}", async (string token, DocumentService documents) =>
 {
@@ -68,11 +125,14 @@ app.MapPost("/api/documents", async (CreateDocumentRequest request, DocumentServ
     {
         return Results.BadRequest(new { error = ex.Message });
     }
-});
+}).RequireAuthorization();
 
 app.MapRazorPages();
 
 app.Run();
+
+public sealed record RegisterRequest(string BusinessName, string Email, string Password);
+public sealed record LoginRequest(string Email, string Password);
 
 public sealed record BusinessUpdateRequest(
     string BusinessName,
@@ -87,7 +147,8 @@ public sealed record BusinessUpdateRequest(
     string MobileMoneyName,
     string MobileMoneyNumber,
     string InvoicePrefix,
-    string FooterText);
+    string FooterText,
+    string TemplateKey);
 
 public sealed record CreateDocumentRequest(
     string DocumentType,
