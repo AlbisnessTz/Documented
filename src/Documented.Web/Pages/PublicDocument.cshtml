@@ -19,7 +19,7 @@ else
         </div>
     </div>
 
-    <article class="invoice">
+    <article class="invoice @Model.Document.Business.TemplateKey">
         <div class="invoice-top">
             <div>
                 @if (!string.IsNullOrWhiteSpace(Model.Document.Business.LogoUrl))
