@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: documented
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DOCUMENTED_DB_PROVIDER
+        value: postgres
+      - key: DOCUMENTED_CONNECTION
+        fromDatabase:
+          name: documented-db
+          property: connectionString
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+
+databases:
+  - name: documented-db
+    plan: free
