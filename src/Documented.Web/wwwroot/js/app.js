@@ -196,27 +196,88 @@ window.DocumentedApp = (() => {
   }
 
   async function setup() {
+    let logoUrl = "";
     try {
       const response = await fetch("/api/business");
       const data = await response.json();
-      $$("[name]").forEach(input => { if (input.name in data) input.value = data[input.name] ?? ""; });
-    } catch {}
+      $$("[name]").forEach(input => {
+        if (input.name in data) input.value = data[input.name] ?? "";
+      });
+      logoUrl = data.logoUrl || "";
+      renderLogoPreview(logoUrl);
+    } catch {
+      renderLogoPreview("");
+    }
+
+    const logoFile = $("#logoFile");
+    const logoInput = $("#logoUrl");
+    const removeLogo = $("#removeLogo");
+
+    logoFile?.addEventListener("change", () => {
+      const file = logoFile.files?.[0];
+      if (!file) return;
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+        logoFile.value = "";
+        return setMessage("#setupMessage", "Logo must be PNG, JPG or WebP.", "error");
+      }
+      if (file.size > 500 * 1024) {
+        logoFile.value = "";
+        return setMessage("#setupMessage", "Logo is too large. Please use an image up to 500 KB.", "error");
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        logoUrl = String(reader.result || "");
+        logoInput.value = logoUrl;
+        renderLogoPreview(logoUrl);
+        setMessage("#setupMessage", "Logo selected. Click Save business settings to keep it.", "");
+      };
+      reader.onerror = () => setMessage("#setupMessage", "Could not read that image.", "error");
+      reader.readAsDataURL(file);
+    });
+
+    logoInput?.addEventListener("input", () => {
+      logoUrl = logoInput.value.trim();
+      renderLogoPreview(logoUrl);
+    });
+
+    removeLogo?.addEventListener("click", () => {
+      logoUrl = "";
+      logoInput.value = "";
+      logoFile.value = "";
+      renderLogoPreview("");
+    });
+
     $("#businessForm")?.addEventListener("submit", async event => {
       event.preventDefault();
       const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+      data.logoUrl = logoUrl || data.logoUrl || "";
+
       try {
         const response = await fetch("/api/business", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
+        const result = response.ok ? await response.json() : null;
         if (!response.ok) throw new Error();
-        setMessage("#setupMessage", "Business settings saved.", "ok");
+        logoUrl = result?.logoUrl || data.logoUrl || "";
+        renderLogoPreview(logoUrl);
+        setMessage("#setupMessage", "Business settings saved. Logo and payment details will now appear on new and existing public documents.", "ok");
       } catch {
         setMessage("#setupMessage", "Business settings need an internet connection in this first version.", "error");
       }
     });
+
     registerServiceWorker();
+  }
+
+  function renderLogoPreview(src) {
+    const preview = $("#logoPreview");
+    if (!preview) return;
+    preview.innerHTML = src
+      ? `<img src="${escapeHtml(src)}" alt="Logo preview">`
+      : "<span>No logo</span>";
   }
 
   function registerServiceWorker() {
