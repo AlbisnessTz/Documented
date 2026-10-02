@@ -1,0 +1,45 @@
+@page
+@{
+    ViewData["Title"] = "Business setup";
+}
+
+<div class="page-head">
+    <p class="eyebrow">Business settings</p>
+    <h1>Make every document yours.</h1>
+    <p class="muted">These details are stored for the business and appear on shared documents.</p>
+</div>
+
+<section class="panel narrow">
+<form id="businessForm">
+    <div class="form-grid">
+        <label>Business name<input name="businessName" required /></label>
+        <label>Phone<input name="phone" /></label>
+        <label>Email<input name="email" type="email" /></label>
+        <label>Logo URL<input name="logoUrl" placeholder="https://..." /></label>
+        <label class="wide">Address<input name="address" /></label>
+        <label class="wide">Slogan<input name="slogan" /></label>
+        <label>Document prefix<input name="invoicePrefix" maxlength="8" /></label>
+        <label class="wide">Footer text<input name="footerText" /></label>
+    </div>
+
+    <hr />
+
+    <h3>Payment details</h3>
+    <div class="form-grid">
+        <label>Bank name<input name="bankName" /></label>
+        <label>Bank account number<input name="bankAccountNumber" /></label>
+        <label>Bank account name<input name="bankAccountName" /></label>
+        <label>Mobile money name<input name="mobileMoneyName" /></label>
+        <label>Mobile money number<input name="mobileMoneyNumber" /></label>
+    </div>
+
+    <button class="primary" type="submit">Save business settings</button>
+    <div id="setupMessage" class="message" aria-live="polite"></div>
+</form>
+</section>
+
+@section Scripts {
+<script>
+    document.addEventListener("DOMContentLoaded", () => DocumentedApp.setup());
+</script>
+}
