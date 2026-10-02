@@ -9,4 +9,5 @@ public sealed class Tenant
 
     public BusinessProfile? BusinessProfile { get; set; }
     public List<Document> Documents { get; set; } = [];
+    public List<AppUser> Users { get; set; } = [];
 }

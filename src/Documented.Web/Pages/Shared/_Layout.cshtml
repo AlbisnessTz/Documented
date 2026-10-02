@@ -11,10 +11,18 @@
 </head>
 <body>
 <header class="topbar">
-    <a class="brand" href="/">DOCUMENTED<span>.</span></a>
+    <a class="brand" href="@((User.Identity?.IsAuthenticated ?? false) ? "/" : "/Account")">DOCUMENTED<span>.</span></a>
     <nav>
-        <a href="/">Documents</a>
-        <a href="/Setup">Business setup</a>
+        @if (User.Identity?.IsAuthenticated ?? false)
+        {
+            <a href="/">Documents</a>
+            <a href="/Setup">Business setup</a>
+            <button type="button" class="nav-button" id="logoutButton">Logout</button>
+        }
+        else
+        {
+            <a href="/Account">Login / Register</a>
+        }
     </nav>
 </header>
 
@@ -25,6 +33,15 @@
 <footer class="footer">Documented · reusable business documents · online + offline</footer>
 
 <script src="/js/app.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("logoutButton")?.addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/Account";
+    });
+});
+</script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

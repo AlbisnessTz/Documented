@@ -20,6 +20,7 @@ public sealed class BusinessProfile
 
     public string InvoicePrefix { get; set; } = "PF";
     public string FooterText { get; set; } = "With our company, you are in good hands.";
+    public string TemplateKey { get; set; } = "modern";
 
     public Tenant Tenant { get; set; } = null!;
 }

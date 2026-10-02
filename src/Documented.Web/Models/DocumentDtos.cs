@@ -13,7 +13,8 @@ public sealed record BusinessProfileDto(
     string MobileMoneyName,
     string MobileMoneyNumber,
     string InvoicePrefix,
-    string FooterText);
+    string FooterText,
+    string TemplateKey);
 
 public sealed record DocumentListDto(
     Guid Id,

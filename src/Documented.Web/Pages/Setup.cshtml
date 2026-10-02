@@ -6,7 +6,7 @@
 <div class="page-head">
     <p class="eyebrow">Business settings</p>
     <h1>Make every document yours.</h1>
-    <p class="muted">These details are stored for the business and appear on shared documents.</p>
+    <p class="muted">Your business workspace is separate from every other business using Documented.</p>
 </div>
 
 <section class="panel narrow">
@@ -19,6 +19,12 @@
         <label class="wide">Address<input name="address" /></label>
         <label class="wide">Slogan<input name="slogan" /></label>
         <label>Document prefix<input name="invoicePrefix" maxlength="8" /></label>
+        <label>Document template
+            <select name="templateKey">
+                <option value="modern">Modern</option>
+                <option value="worldlight">World Light style</option>
+            </select>
+        </label>
         <label class="wide">Footer text<input name="footerText" /></label>
     </div>
 
