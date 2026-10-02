@@ -44,14 +44,13 @@ public sealed class TenantService(AppDbContext db)
         return tenant;
     }
 
-    public async Task<Tenant?> GetDefaultTenantAsync()
+    public async Task<BusinessProfileDto> GetDefaultBusinessAsync()
     {
-        return await db.Tenants
-            .Include(x => x.BusinessProfile)
-            .FirstOrDefaultAsync(x => x.Id == DefaultTenantId);
+        var tenant = await EnsureDefaultTenantAsync();
+        return ToDto(tenant.BusinessProfile!);
     }
 
-    public async Task<object> UpdateDefaultBusinessAsync(BusinessUpdateRequest request)
+    public async Task<BusinessProfileDto> UpdateDefaultBusinessAsync(BusinessUpdateRequest request)
     {
         var tenant = await EnsureDefaultTenantAsync();
         var profile = tenant.BusinessProfile!;
@@ -73,15 +72,27 @@ public sealed class TenantService(AppDbContext db)
         tenant.Name = profile.BusinessName;
         await db.SaveChangesAsync();
 
-        return profile;
+        return ToDto(profile);
     }
 
     public static Guid DefaultId => DefaultTenantId;
 
-    private static string Clean(string? value, string fallback = "")
-        => (value ?? string.Empty).Trim() switch
-        {
-            { Length: > 0 } text => text,
-            _ => fallback
-        };
+    private static BusinessProfileDto ToDto(BusinessProfile profile) =>
+        new(
+            profile.BusinessName,
+            profile.Address,
+            profile.Phone,
+            profile.Email,
+            profile.LogoUrl,
+            profile.Slogan,
+            profile.BankName,
+            profile.BankAccountNumber,
+            profile.BankAccountName,
+            profile.MobileMoneyName,
+            profile.MobileMoneyNumber,
+            profile.InvoicePrefix,
+            profile.FooterText);
+
+    private static string Clean(string? value, string fallback = "") =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }
