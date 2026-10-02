@@ -179,12 +179,21 @@ static string NormalizePostgresConnectionString(string raw)
     if (userInfo.Length > 1)
         builder.Password = Uri.UnescapeDataString(userInfo[1]);
 
-    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-    var sslMode = query["sslmode"];
-    if (!string.IsNullOrWhiteSpace(sslMode) &&
-        Enum.TryParse<SslMode>(sslMode.Replace("-", "", StringComparison.OrdinalIgnoreCase), true, out var parsedSslMode))
+    foreach (var parameter in uri.Query.TrimStart('?')
+                 .Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
     {
-        builder.SslMode = parsedSslMode;
+        var parts = parameter.Split('=', 2);
+        if (parts.Length != 2)
+            continue;
+
+        var key = Uri.UnescapeDataString(parts[0]);
+        var value = Uri.UnescapeDataString(parts[1]);
+
+        if (key.Equals("sslmode", StringComparison.OrdinalIgnoreCase) &&
+            Enum.TryParse<SslMode>(value, true, out var sslMode))
+        {
+            builder.SslMode = sslMode;
+        }
     }
 
     return builder.ConnectionString;
