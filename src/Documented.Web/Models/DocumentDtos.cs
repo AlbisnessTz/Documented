@@ -30,6 +30,15 @@ public sealed record DocumentItemDto(
     decimal UnitPrice,
     decimal LineTotal);
 
+public sealed record DocumentCreatedDto(
+    Guid Id,
+    string DocumentType,
+    string Number,
+    string PublicToken,
+    string CustomerName,
+    decimal Total,
+    DateTime CreatedAtUtc);
+
 public sealed record DocumentDetailsDto(
     Guid Id,
     string DocumentType,
