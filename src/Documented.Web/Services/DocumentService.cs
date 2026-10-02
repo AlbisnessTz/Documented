@@ -6,7 +6,7 @@ namespace Documented.Web.Services;
 
 public sealed class DocumentService(AppDbContext db, TenantService tenants)
 {
-    public async Task<List<object>> GetRecentAsync(int limit)
+    public async Task<List<DocumentListDto>> GetRecentAsync(int limit)
     {
         var tenantId = TenantService.DefaultId;
 
@@ -15,47 +15,39 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             .Where(x => x.TenantId == tenantId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(limit)
-            .Select(x => new
-            {
+            .Select(x => new DocumentListDto(
                 x.Id,
                 x.DocumentType,
                 x.Number,
                 x.PublicToken,
                 x.CustomerName,
                 x.Total,
-                x.CreatedAtUtc
-            })
-            .Cast<object>()
+                x.CreatedAtUtc))
             .ToListAsync();
     }
 
-    public async Task<object?> GetAsync(Guid id)
+    public async Task<DocumentDetailsDto?> GetAsync(Guid id)
     {
-        return await db.Documents
+        var document = await db.Documents
             .AsNoTracking()
             .Include(x => x.Items)
             .Include(x => x.Tenant)
-                .ThenInclude(x => x.BusinessProfile)
-            .Where(x => x.Id == id && x.TenantId == TenantService.DefaultId)
-            .Select(x => new
-            {
-                x.Id,
-                x.DocumentType,
-                x.Number,
-                x.PublicToken,
-                x.CustomerName,
-                x.CustomerPhone,
-                x.CustomerEmail,
-                x.CustomerAddress,
-                x.Notes,
-                x.Subtotal,
-                x.Discount,
-                x.Total,
-                x.CreatedAtUtc,
-                Business = x.Tenant.BusinessProfile,
-                Items = x.Items.OrderBy(i => i.Description)
-            })
-            .FirstOrDefaultAsync();
+            .ThenInclude(x => x.BusinessProfile)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == TenantService.DefaultId);
+
+        return document is null ? null : ToDetails(document);
+    }
+
+    public async Task<DocumentDetailsDto?> GetByTokenAsync(string token)
+    {
+        var document = await db.Documents
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Include(x => x.Tenant)
+            .ThenInclude(x => x.BusinessProfile)
+            .FirstOrDefaultAsync(x => x.PublicToken == token);
+
+        return document is null ? null : ToDetails(document);
     }
 
     public async Task<object> CreateAsync(CreateDocumentRequest request)
@@ -84,14 +76,11 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             .Select(x => x.Number)
             .ToListAsync();
 
-        var next = 1;
-        var parsed = usedNumbers
+        var next = usedNumbers
             .Select(x => x[(prefix.Length + 1)..])
             .Select(x => int.TryParse(x, out var n) ? n : 0)
             .DefaultIfEmpty(0)
-            .Max();
-
-        next = parsed + 1;
+            .Max() + 1;
 
         var items = cleanItems.Select(x => new DocumentItem
         {
@@ -103,7 +92,6 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
 
         var subtotal = items.Sum(x => x.LineTotal);
         var discount = Math.Clamp(request.Discount, 0, subtotal);
-        var total = subtotal - discount;
 
         var document = new Document
         {
@@ -117,7 +105,7 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             Notes = request.Notes?.Trim() ?? string.Empty,
             Subtotal = subtotal,
             Discount = discount,
-            Total = total,
+            Total = subtotal - discount,
             Items = items
         };
 
@@ -134,5 +122,42 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             document.Total,
             document.CreatedAtUtc
         };
+    }
+
+    private static DocumentDetailsDto ToDetails(Document document)
+    {
+        var business = document.Tenant.BusinessProfile!;
+        return new DocumentDetailsDto(
+            document.Id,
+            document.DocumentType,
+            document.Number,
+            document.PublicToken,
+            document.CustomerName,
+            document.CustomerPhone,
+            document.CustomerEmail,
+            document.CustomerAddress,
+            document.Notes,
+            document.Subtotal,
+            document.Discount,
+            document.Total,
+            document.CreatedAtUtc,
+            new BusinessProfileDto(
+                business.BusinessName,
+                business.Address,
+                business.Phone,
+                business.Email,
+                business.LogoUrl,
+                business.Slogan,
+                business.BankName,
+                business.BankAccountNumber,
+                business.BankAccountName,
+                business.MobileMoneyName,
+                business.MobileMoneyNumber,
+                business.InvoicePrefix,
+                business.FooterText),
+            document.Items
+                .OrderBy(x => x.Id)
+                .Select(x => new DocumentItemDto(x.Description, x.Quantity, x.UnitPrice, x.LineTotal))
+                .ToList());
     }
 }
