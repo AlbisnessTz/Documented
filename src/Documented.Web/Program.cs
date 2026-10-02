@@ -2,6 +2,7 @@ using Documented.Web.Data;
 using Documented.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,11 @@ var provider = builder.Configuration["Database:Provider"]
 var connectionString = builder.Configuration.GetConnectionString("Documented")
     ?? Environment.GetEnvironmentVariable("DOCUMENTED_CONNECTION")
     ?? "Data Source=App_Data/documented.db";
+
+if (provider.Equals("postgres", StringComparison.OrdinalIgnoreCase))
+{
+    connectionString = NormalizePostgresConnectionString(connectionString);
+}
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -147,6 +153,51 @@ app.MapPost("/api/documents", async (CreateDocumentRequest request, DocumentServ
 app.MapRazorPages();
 
 app.Run();
+
+static string NormalizePostgresConnectionString(string raw)
+{
+    raw = raw.Trim();
+
+    if (!raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
+        !raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        return raw;
+    }
+
+    var uri = new Uri(raw);
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port,
+        Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'))
+    };
+
+    var userInfo = uri.UserInfo.Split(':', 2);
+    if (userInfo.Length > 0 && userInfo[0].Length > 0)
+        builder.Username = Uri.UnescapeDataString(userInfo[0]);
+
+    if (userInfo.Length > 1)
+        builder.Password = Uri.UnescapeDataString(userInfo[1]);
+
+    foreach (var parameter in uri.Query.TrimStart('?')
+                 .Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        var parts = parameter.Split('=', 2);
+        if (parts.Length != 2)
+            continue;
+
+        var key = Uri.UnescapeDataString(parts[0]);
+        var value = Uri.UnescapeDataString(parts[1]);
+
+        if (key.Equals("sslmode", StringComparison.OrdinalIgnoreCase) &&
+            Enum.TryParse<SslMode>(value, true, out var sslMode))
+        {
+            builder.SslMode = sslMode;
+        }
+    }
+
+    return builder.ConnectionString;
+}
 
 public sealed record RegisterRequest(string BusinessName, string Email, string Password);
 public sealed record LoginRequest(string Email, string Password);
