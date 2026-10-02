@@ -12,7 +12,11 @@ else
 {
     <div class="print-actions">
         <a class="ghost" href="/">Documented</a>
-        <button class="primary" onclick="window.print()">Print / Save PDF</button>
+        <div class="share-actions">
+            <button class="ghost" id="copyLink" type="button">Copy link</button>
+            <a class="ghost" id="whatsappShare" target="_blank" rel="noopener">WhatsApp</a>
+            <button class="primary" onclick="window.print()" type="button">Print / Save PDF</button>
+        </div>
     </div>
 
     <article class="invoice">
@@ -76,4 +80,21 @@ else
 
         <div class="invoice-footer">@Model.Document.Business.FooterText</div>
     </article>
+
+    <script>
+        (() => {
+            const url = window.location.href;
+            const message = encodeURIComponent("@Model.Document.Business.BusinessName - @Model.Document.DocumentType @Model.Document.Number\n" + url);
+            document.getElementById("whatsappShare").href = "https://wa.me/?text=" + message;
+            document.getElementById("copyLink").addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(url);
+                    document.getElementById("copyLink").textContent = "Copied";
+                    setTimeout(() => document.getElementById("copyLink").textContent = "Copy link", 1600);
+                } catch {
+                    window.prompt("Copy this document link:", url);
+                }
+            });
+        })();
+    </script>
 }
