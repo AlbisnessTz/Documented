@@ -17,9 +17,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 
+var provider = builder.Configuration["Database:Provider"]
+    ?? Environment.GetEnvironmentVariable("DOCUMENTED_DB_PROVIDER")
+    ?? "sqlite";
+
+var connectionString = builder.Configuration.GetConnectionString("Documented")
+    ?? Environment.GetEnvironmentVariable("DOCUMENTED_CONNECTION")
+    ?? "Data Source=App_Data/documented.db";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Documented")
-        ?? "Data Source=App_Data/documented.db"));
+{
+    if (provider.Equals("postgres", StringComparison.OrdinalIgnoreCase))
+        options.UseNpgsql(connectionString);
+    else
+        options.UseSqlite(connectionString);
+});
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TenantService>();
@@ -62,7 +74,12 @@ app.Use(async (context, next) =>
 
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", app = "Documented" }));
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    app = "Documented",
+    database = provider
+}));
 
 app.MapGet("/api/session", (AuthService auth) =>
     Results.Ok(new
