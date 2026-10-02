@@ -1,0 +1,79 @@
+@page "/d/{token}"
+@model Documented.Web.Pages.PublicDocumentModel
+@{
+    ViewData["Title"] = Model.Document?.Number ?? "Document";
+}
+
+@if (Model.Document is null)
+{
+    <section class="panel narrow"><h1>Document not found</h1><p class="muted">The link may be invalid or the document may no longer be available.</p></section>
+}
+else
+{
+    <div class="print-actions">
+        <a class="ghost" href="/">Documented</a>
+        <button class="primary" onclick="window.print()">Print / Save PDF</button>
+    </div>
+
+    <article class="invoice">
+        <div class="invoice-top">
+            <div>
+                @if (!string.IsNullOrWhiteSpace(Model.Document.Business.LogoUrl))
+                {
+                    <img class="invoice-logo" src="@Model.Document.Business.LogoUrl" alt="Business logo" />
+                }
+                <h1>@Model.Document.Business.BusinessName</h1>
+                <p>@Model.Document.Business.Slogan</p>
+                <p>@Model.Document.Business.Address</p>
+                <p>@Model.Document.Business.Phone · @Model.Document.Business.Email</p>
+            </div>
+            <div class="invoice-meta">
+                <strong>@Model.Document.DocumentType.ToUpperInvariant()</strong>
+                <span>No: @Model.Document.Number</span>
+                <span>Date: @Model.Document.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</span>
+            </div>
+        </div>
+
+        <div class="bill-to">
+            <strong>BILL TO</strong>
+            <div>@Model.Document.CustomerName</div>
+            <div>@Model.Document.CustomerPhone</div>
+            <div>@Model.Document.CustomerAddress</div>
+        </div>
+
+        <table>
+            <thead><tr><th>QTY</th><th>PARTICULARS</th><th>UNIT PRICE</th><th>AMOUNT</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Document.Items)
+            {
+                <tr>
+                    <td>@item.Quantity</td>
+                    <td>@item.Description</td>
+                    <td>@item.UnitPrice.ToString("N2")</td>
+                    <td>@item.LineTotal.ToString("N2")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+        <div class="invoice-bottom">
+            <div>
+                <h3>Payment details</h3>
+                <p>@Model.Document.Business.BankName<br />@Model.Document.Business.BankAccountName<br />@Model.Document.Business.BankAccountNumber</p>
+                <p>@Model.Document.Business.MobileMoneyName<br />@Model.Document.Business.MobileMoneyNumber</p>
+                @if (!string.IsNullOrWhiteSpace(Model.Document.Notes))
+                {
+                    <h3>Notes</h3>
+                    <p>@Model.Document.Notes</p>
+                }
+            </div>
+            <div class="summary">
+                <div><span>Subtotal</span><strong>@Model.Document.Subtotal.ToString("N2")</strong></div>
+                <div><span>Discount</span><strong>@Model.Document.Discount.ToString("N2")</strong></div>
+                <div class="grand"><span>TOTAL</span><strong>@Model.Document.Total.ToString("N2")</strong></div>
+            </div>
+        </div>
+
+        <div class="invoice-footer">@Model.Document.Business.FooterText</div>
+    </article>
+}

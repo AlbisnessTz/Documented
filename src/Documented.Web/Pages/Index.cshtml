@@ -1,0 +1,76 @@
+@page
+@{
+    ViewData["Title"] = "Documents";
+}
+
+<section class="hero">
+    <div>
+        <p class="eyebrow">Business document workspace</p>
+        <h1>Create professional documents from anywhere.</h1>
+        <p class="muted">Start with proforma invoices. The same foundation will support quotations and invoices for many businesses.</p>
+    </div>
+    <div class="status-card">
+        <span id="connectionDot" class="status-dot"></span>
+        <div>
+            <strong id="connectionText">Checking connection...</strong>
+            <small>Offline drafts are queued on this device.</small>
+        </div>
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="panel">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">New document</p>
+                <h2>Proforma invoice</h2>
+            </div>
+            <button type="button" class="ghost" id="clearDraft">Clear</button>
+        </div>
+
+        <form id="documentForm">
+            <div class="form-grid">
+                <label>Customer name<input name="customerName" required placeholder="Customer or company" /></label>
+                <label>Customer phone<input name="customerPhone" placeholder="+255..." /></label>
+                <label>Customer email<input name="customerEmail" type="email" /></label>
+                <label>Customer address<input name="customerAddress" /></label>
+            </div>
+
+            <div class="items-head">
+                <span>Particulars</span><span>Qty</span><span>Unit price</span><span>Amount</span><span></span>
+            </div>
+            <div id="items"></div>
+            <button type="button" class="outline" id="addItem">+ Add item</button>
+
+            <div class="totals-box">
+                <label>Discount<input id="discount" type="number" min="0" step="0.01" value="0" /></label>
+                <div><span>Subtotal</span><strong id="subtotal">0.00</strong></div>
+                <div class="grand"><span>Total</span><strong id="total">0.00</strong></div>
+            </div>
+
+            <label>Notes<textarea id="notes" rows="3" placeholder="Optional notes or payment terms"></textarea></label>
+
+            <button class="primary" type="submit">Create proforma</button>
+            <div id="formMessage" class="message" aria-live="polite"></div>
+        </form>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Recent</p>
+                <h2>Documents</h2>
+            </div>
+            <button type="button" class="ghost" id="refreshDocs">Refresh</button>
+        </div>
+        <div id="documentsList" class="document-list">
+            <div class="empty">Loading documents...</div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+    document.addEventListener("DOMContentLoaded", () => DocumentedApp.start());
+</script>
+}

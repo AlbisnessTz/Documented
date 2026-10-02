@@ -1,0 +1,9 @@
+{
+  "name":"Documented Business Documents",
+  "short_name":"Documented",
+  "start_url":"/",
+  "display":"standalone",
+  "background_color":"#090b10",
+  "theme_color":"#090b10",
+  "description":"Online and offline business documents."
+}
