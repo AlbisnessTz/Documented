@@ -41,3 +41,14 @@ select:focus{border-color:var(--accent)}
 /* Business template variants */
 .invoice.worldlight{border-top:8px solid #12151b}.invoice.worldlight .bill-to{background:#f0f1f3;border-left:4px solid #12151b}.invoice.worldlight .invoice-top h1{letter-spacing:.02em}.invoice.worldlight .invoice-footer{text-transform:none}
 .invoice.worldlight .invoice-top{border-bottom:0;padding-bottom:16px}.invoice.worldlight .invoice-meta strong{color:#4a5c84}.invoice.worldlight .invoice th{background:#dfe3e8}.invoice.worldlight .bill-to strong,.invoice.worldlight .payment-box>h3{background:#3e527f;color:#fff;padding:7px 10px;margin:-16px -16px 10px}.invoice.worldlight .payment-box{border-radius:0}.invoice.worldlight .summary .grand{border-top:0;background:#ffd42a;padding:12px 10px;font-size:1.15rem}.invoice.worldlight .invoice-footer{font-style:italic}
+
+.recovery-notice{margin:0 0 18px;padding:16px;border:1px solid #35506b;border-radius:12px;background:linear-gradient(180deg,rgba(19,30,43,.96),rgba(12,19,28,.96))}
+.recovery-notice strong{display:block;font-size:1rem;color:var(--text)}
+.recovery-notice p{margin:6px 0;color:var(--muted);line-height:1.55}
+.recovery-code{margin:12px 0;padding:13px 14px;border:1px dashed #4b6075;border-radius:10px;background:#080d13;color:#fff;font-family:Consolas,monospace;letter-spacing:.16em;font-size:1.05rem;font-weight:800;text-align:center;word-break:break-all}
+.small{font-size:.78rem}
+.security-divider{height:1px;background:var(--line);margin:28px 0 22px}
+.security-section{padding-top:2px}
+.security-section h3{margin:.2rem 0 16px}
+.security-section form{display:grid;gap:12px}
+.security-button{margin-top:12px;width:100%}
