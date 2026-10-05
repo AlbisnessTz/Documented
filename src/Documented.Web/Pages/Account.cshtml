@@ -1,6 +1,7 @@
 @page
 @{
     ViewData["Title"] = "Account";
+    var authenticated = User.Identity?.IsAuthenticated ?? false;
 }
 
 <section class="auth-shell">
@@ -12,6 +13,15 @@
         <div class="auth-tabs">
             <button type="button" class="auth-tab active" id="registerTab">Register</button>
             <button type="button" class="auth-tab" id="loginTab">Login</button>
+            <button type="button" class="auth-tab hidden" id="resetTab">Reset password</button>
+        </div>
+
+        <div id="recoveryNotice" class="recovery-notice hidden">
+            <strong>Save your recovery code</strong>
+            <p>Keep this code somewhere safe. You can use it to reset your password without email.</p>
+            <div class="recovery-code" id="recoveryCode"></div>
+            <button type="button" class="outline" id="copyRecoveryCode">Copy recovery code</button>
+            <p class="muted small">The code is shown only when it is created or rotated. We do not store it in readable form.</p>
         </div>
 
         <form id="registerForm">
@@ -25,7 +35,34 @@
             <label>Email<input name="email" type="email" required placeholder="name@example.com" /></label>
             <label>Password<input name="password" type="password" required placeholder="Your password" /></label>
             <button class="primary" type="submit">Login</button>
+            <button type="button" class="outline" id="forgotPasswordButton">Forgot password?</button>
         </form>
+
+        <form id="resetForm" class="hidden">
+            <label>Email<input name="email" type="email" required placeholder="Your account email" /></label>
+            <label>Recovery code<input name="recoveryCode" required autocomplete="off" placeholder="12-character recovery code" /></label>
+            <label>New password<input name="newPassword" type="password" minlength="8" required placeholder="At least 8 characters" /></label>
+            <label>Confirm new password<input name="confirmPassword" type="password" minlength="8" required placeholder="Repeat the new password" /></label>
+            <button class="primary" type="submit">Reset password</button>
+            <button type="button" class="outline" id="backToLoginButton">Back to login</button>
+        </form>
+
+        @if (authenticated)
+        {
+            <div class="security-divider"></div>
+            <div class="security-section">
+                <p class="eyebrow">Account security</p>
+                <h3>Change your password</h3>
+                <form id="changePasswordForm">
+                    <label>Current password<input name="currentPassword" type="password" required /></label>
+                    <label>New password<input name="newPassword" type="password" minlength="8" required /></label>
+                    <label>Confirm new password<input name="confirmPassword" type="password" minlength="8" required /></label>
+                    <button class="primary" type="submit">Change password</button>
+                </form>
+                <button type="button" class="outline security-button" id="rotateRecoveryCode">Generate a new recovery code</button>
+                <p class="muted small">Store your recovery code somewhere private. It is your zero-email password recovery method.</p>
+            </div>
+        }
 
         <div id="authMessage" class="message" aria-live="polite"></div>
     </div>
