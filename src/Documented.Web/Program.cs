@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Documented.Web.Data;
 using Documented.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -51,6 +52,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+    await EnsureRecoveryCodeColumnAsync(db, provider);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -98,14 +100,45 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, AuthService au
 {
     var result = await auth.RegisterAsync(request.BusinessName, request.Email, request.Password);
     return result.Success
-        ? Results.Ok(new { message = "Account created." })
+        ? Results.Ok(new { message = "Account created.", recoveryCode = result.RecoveryCode })
         : Results.BadRequest(new { error = result.Error });
 });
 
 app.MapPost("/api/auth/login", async (LoginRequest request, AuthService auth) =>
-    await auth.LoginAsync(request.Email, request.Password)
-        ? Results.Ok(new { message = "Logged in." })
-        : Results.BadRequest(new { error = "Invalid email or password." }));
+{
+    var result = await auth.LoginAsync(request.Email, request.Password);
+    return result.Success
+        ? Results.Ok(new { message = "Logged in.", recoveryCode = result.RecoveryCode })
+        : Results.BadRequest(new { error = result.Error });
+});
+
+app.MapPost("/api/auth/change-password", async (ChangePasswordRequest request, AuthService auth) =>
+{
+    var result = await auth.ChangePasswordAsync(request.CurrentPassword, request.NewPassword);
+    return result.Success
+        ? Results.Ok(new { message = "Password changed.", recoveryCode = result.RecoveryCode })
+        : Results.BadRequest(new { error = result.Error });
+}).RequireAuthorization();
+
+app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest request, AuthService auth) =>
+{
+    var result = await auth.ResetPasswordWithRecoveryCodeAsync(
+        request.Email,
+        request.RecoveryCode,
+        request.NewPassword);
+
+    return result.Success
+        ? Results.Ok(new { message = "Password reset.", recoveryCode = result.RecoveryCode })
+        : Results.BadRequest(new { error = result.Error });
+});
+
+app.MapPost("/api/auth/recovery-code", async (AuthService auth) =>
+{
+    var result = await auth.RotateRecoveryCodeAsync();
+    return result.Success
+        ? Results.Ok(new { message = "Recovery code generated.", recoveryCode = result.RecoveryCode })
+        : Results.BadRequest(new { error = result.Error });
+}).RequireAuthorization();
 
 app.MapPost("/api/auth/logout", async (AuthService auth) =>
 {
@@ -154,6 +187,72 @@ app.MapRazorPages();
 
 app.Run();
 
+static async Task EnsureRecoveryCodeColumnAsync(AppDbContext db, string provider)
+{
+    var connection = db.Database.GetDbConnection();
+    var shouldClose = connection.State != System.Data.ConnectionState.Open;
+
+    if (shouldClose)
+        await connection.OpenAsync();
+
+    try
+    {
+        if (provider.Equals("postgres", StringComparison.OrdinalIgnoreCase))
+        {
+            await AddPostgresColumnIfMissingAsync(connection, "RecoveryCodeHash");
+        }
+        else
+        {
+            var exists = await SqliteColumnExistsAsync(connection, "Users", "RecoveryCodeHash");
+            if (!exists)
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "ALTER TABLE "Users" ADD COLUMN "RecoveryCodeHash" TEXT NULL;";
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+    }
+    finally
+    {
+        if (shouldClose)
+            await connection.CloseAsync();
+    }
+}
+
+static async Task AddPostgresColumnIfMissingAsync(DbConnection connection, string columnName)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandText = """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'Users'
+                  AND column_name = 'RecoveryCodeHash'
+            ) THEN
+                ALTER TABLE "Users" ADD COLUMN "RecoveryCodeHash" text NULL;
+            END IF;
+        END $$;
+        """;
+    await command.ExecuteNonQueryAsync();
+}
+
+static async Task<bool> SqliteColumnExistsAsync(DbConnection connection, string tableName, string columnName)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandText = $"PRAGMA table_info("{tableName}");";
+
+    await using var reader = await command.ExecuteReaderAsync();
+    while (await reader.ReadAsync())
+    {
+        if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+            return true;
+    }
+
+    return false;
+}
+
 static string NormalizePostgresConnectionString(string raw)
 {
     raw = raw.Trim();
@@ -201,6 +300,8 @@ static string NormalizePostgresConnectionString(string raw)
 
 public sealed record RegisterRequest(string BusinessName, string Email, string Password);
 public sealed record LoginRequest(string Email, string Password);
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+public sealed record ResetPasswordRequest(string Email, string RecoveryCode, string NewPassword);
 
 public sealed record BusinessUpdateRequest(
     string BusinessName,
