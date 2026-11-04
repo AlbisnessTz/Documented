@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Documented.Web.Data;
 using Documented.Web.Models;
 using Microsoft.AspNetCore.Authentication;
@@ -8,8 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Documented.Web.Services;
 
-public sealed class AuthService(AppDbContext db, IHttpContextAccessor http)
+public sealed class AuthService(AppDbContext db, IHttpContextAccessor http, EmailService mailer)
 {
+    private static readonly TimeSpan ResetLifetime = TimeSpan.FromMinutes(30);
+    private const int MaxResetRequestsPerHour = 3;
+
     private readonly PasswordHasher<AppUser> passwordHasher = new();
 
     public async Task<(bool Success, string? Error, AppUser? User)> RegisterAsync(
@@ -80,6 +85,85 @@ public sealed class AuthService(AppDbContext db, IHttpContextAccessor http)
         await SignInAsync(user);
         return true;
     }
+
+    /// <summary>
+    /// Starts a password reset. Always completes silently so callers cannot learn
+    /// which email addresses have accounts.
+    /// </summary>
+    public async Task ForgotPasswordAsync(string email, string baseUrl)
+    {
+        email = (email ?? string.Empty).Trim().ToLowerInvariant();
+        if (email.Length < 5 || !email.Contains('@'))
+            return;
+
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Email == email);
+        if (user is null)
+            return;
+
+        var since = DateTime.UtcNow.AddHours(-1);
+        var recent = await db.PasswordResetTokens
+            .CountAsync(x => x.UserId == user.Id && x.CreatedAtUtc > since);
+        if (recent >= MaxResetRequestsPerHour)
+            return;
+
+        var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+
+        db.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            UserId = user.Id,
+            TokenHash = HashToken(rawToken),
+            ExpiresAtUtc = DateTime.UtcNow.Add(ResetLifetime)
+        });
+        await db.SaveChangesAsync();
+
+        var link = $"{baseUrl.TrimEnd('/')}/Account?reset={rawToken}";
+        var body =
+            "We received a request to reset your Documented password.\n\n" +
+            $"Open this link within {(int)ResetLifetime.TotalMinutes} minutes to choose a new password:\n{link}\n\n" +
+            "If you did not ask for this, you can ignore this email. Your password has not changed.";
+
+        await mailer.SendAsync(user.Email, "Reset your Documented password", body);
+    }
+
+    public async Task<(bool Success, string? Error)> ResetPasswordAsync(string token, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return (false, "This reset link is not valid.");
+
+        if (newPassword is null || newPassword.Length < 8)
+            return (false, "Password must contain at least 8 characters.");
+
+        var hash = HashToken(token.Trim());
+        var now = DateTime.UtcNow;
+
+        var resetToken = await db.PasswordResetTokens
+            .FirstOrDefaultAsync(x => x.TokenHash == hash && x.UsedAtUtc == null && x.ExpiresAtUtc > now);
+
+        if (resetToken is null)
+            return (false, "This reset link is invalid or has expired. Request a new one.");
+
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == resetToken.UserId);
+        if (user is null)
+            return (false, "This reset link is invalid or has expired. Request a new one.");
+
+        user.PasswordHash = passwordHasher.HashPassword(user, newPassword);
+
+        // A reset link works once; any other open links for this user stop working too.
+        var openTokens = await db.PasswordResetTokens
+            .Where(x => x.UserId == user.Id && x.UsedAtUtc == null)
+            .ToListAsync();
+        foreach (var open in openTokens)
+            open.UsedAtUtc = now;
+
+        await db.SaveChangesAsync();
+        return (true, null);
+    }
+
+    private static string HashToken(string rawToken) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
 
     public async Task SignOutAsync()
     {
