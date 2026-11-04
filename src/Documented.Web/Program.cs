@@ -191,6 +191,23 @@ app.MapGet("/api/public/{token}", async (string token, DocumentService documents
     return document is null ? Results.NotFound() : Results.Ok(document);
 });
 
+app.MapPost("/api/documents/{id:guid}/payments", async (Guid id, RecordPaymentRequest request, DocumentService documents) =>
+{
+    try
+    {
+        var result = await documents.RecordPaymentAsync(id, request);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/reports/summary", async (DocumentService documents) =>
+    Results.Ok(await documents.GetSummaryAsync()))
+    .RequireAuthorization();
+
 app.MapPost("/api/documents", async (CreateDocumentRequest request, DocumentService documents) =>
 {
     try
@@ -282,7 +299,10 @@ public sealed record CreateDocumentRequest(
     string CustomerAddress,
     string Notes,
     decimal Discount,
-    List<CreateDocumentItemRequest> Items);
+    List<CreateDocumentItemRequest> Items,
+    string? PaymentMethod = null);
+
+public sealed record RecordPaymentRequest(decimal Amount, string? Method = null, string? Note = null);
 
 public sealed record CreateDocumentItemRequest(
     string Description,
