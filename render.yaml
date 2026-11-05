@@ -13,6 +13,15 @@ services:
           property: connectionString
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      # Set these three in the Render dashboard (they are secrets or site-specific).
+      # DOCUMENTED_PUBLIC_URL is the site address used in password reset links,
+      # for example https://your-service.onrender.com
+      - key: DOCUMENTED_PUBLIC_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
 
 databases:
   - name: documented-db

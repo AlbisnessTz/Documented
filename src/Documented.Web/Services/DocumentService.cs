@@ -112,60 +112,77 @@ public sealed class DocumentService(AppDbContext db, TenantService tenants)
             _ => string.IsNullOrWhiteSpace(tenantPrefix) ? "PF" : tenantPrefix.Trim()
         };
 
-        var usedNumbers = await db.Documents
-            .Where(x => x.TenantId == tenant.Id && x.Number.StartsWith(prefix + "-"))
-            .Select(x => x.Number)
-            .ToListAsync();
+        var tenantId = tenant.Id;
+        Document document;
 
-        var next = usedNumbers
-            .Select(x => x[(prefix.Length + 1)..])
-            .Select(x => int.TryParse(x, out var n) ? n : 0)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-
-        var items = cleanItems.Select(x => new DocumentItem
+        // The next number is read and then saved in two steps. If another request grabs the same
+        // number in between, the unique (TenantId, Number) index rejects ours; try again with a
+        // fresh number instead of failing the user.
+        for (var attempt = 1; ; attempt++)
         {
-            Description = x.Description,
-            Quantity = x.Quantity,
-            UnitPrice = decimal.Round(x.UnitPrice, 2),
-            LineTotal = decimal.Round(x.Quantity * x.UnitPrice, 2)
-        }).ToList();
+            var usedNumbers = await db.Documents
+                .Where(x => x.TenantId == tenantId && x.Number.StartsWith(prefix + "-"))
+                .Select(x => x.Number)
+                .ToListAsync();
 
-        var subtotal = items.Sum(x => x.LineTotal);
-        var discount = Math.Clamp(request.Discount, 0, subtotal);
+            var next = usedNumbers
+                .Select(x => x[(prefix.Length + 1)..])
+                .Select(x => int.TryParse(x, out var n) ? n : 0)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
 
-        var document = new Document
-        {
-            TenantId = tenant.Id,
-            DocumentType = type,
-            Number = $"{prefix}-{next:000000}",
-            CustomerName = request.CustomerName.Trim(),
-            CustomerPhone = request.CustomerPhone?.Trim() ?? string.Empty,
-            CustomerEmail = request.CustomerEmail?.Trim() ?? string.Empty,
-            CustomerAddress = request.CustomerAddress?.Trim() ?? string.Empty,
-            Notes = request.Notes?.Trim() ?? string.Empty,
-            Subtotal = subtotal,
-            Discount = discount,
-            Total = subtotal - discount,
-            Items = items
-        };
-
-        db.Documents.Add(document);
-
-        // A receipt confirms money already received, so it is recorded as paid in full.
-        if (type == "Receipt" && document.Total > 0)
-        {
-            db.Payments.Add(new Payment
+            var items = cleanItems.Select(x => new DocumentItem
             {
-                TenantId = tenant.Id,
-                DocumentId = document.Id,
-                Amount = document.Total,
-                Method = CleanMethod(request.PaymentMethod),
-                Note = "Paid in full when the receipt was issued."
-            });
-        }
+                Description = x.Description,
+                Quantity = x.Quantity,
+                UnitPrice = decimal.Round(x.UnitPrice, 2),
+                LineTotal = decimal.Round(x.Quantity * x.UnitPrice, 2)
+            }).ToList();
 
-        await db.SaveChangesAsync();
+            var subtotal = items.Sum(x => x.LineTotal);
+            var discount = Math.Clamp(request.Discount, 0, subtotal);
+
+            document = new Document
+            {
+                TenantId = tenantId,
+                DocumentType = type,
+                Number = $"{prefix}-{next:000000}",
+                CustomerName = request.CustomerName.Trim(),
+                CustomerPhone = request.CustomerPhone?.Trim() ?? string.Empty,
+                CustomerEmail = request.CustomerEmail?.Trim() ?? string.Empty,
+                CustomerAddress = request.CustomerAddress?.Trim() ?? string.Empty,
+                Notes = request.Notes?.Trim() ?? string.Empty,
+                Subtotal = subtotal,
+                Discount = discount,
+                Total = subtotal - discount,
+                Items = items
+            };
+
+            db.Documents.Add(document);
+
+            // A receipt confirms money already received, so it is recorded as paid in full.
+            if (type == "Receipt" && document.Total > 0)
+            {
+                db.Payments.Add(new Payment
+                {
+                    TenantId = tenantId,
+                    DocumentId = document.Id,
+                    Amount = document.Total,
+                    Method = CleanMethod(request.PaymentMethod),
+                    Note = "Paid in full when the receipt was issued."
+                });
+            }
+
+            try
+            {
+                await db.SaveChangesAsync();
+                break;
+            }
+            catch (DbUpdateException) when (attempt < 3)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
 
         return new DocumentCreatedDto(
             document.Id,

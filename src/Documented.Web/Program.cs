@@ -62,7 +62,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString);
 });
 
-builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpClient<EmailService>(client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TenantService>();
 builder.Services.AddScoped<DocumentService>();
@@ -140,14 +140,17 @@ app.MapPost("/api/auth/forgot", async (
     HttpContext context,
     IConfiguration config) =>
 {
+    // The link in the email must point at our own site. In production it comes only from
+    // configuration: building it from the request's Host header would let anyone forge that
+    // header and email a victim a reset link that leads to a page they control.
     var baseUrl = config["DOCUMENTED_PUBLIC_URL"];
-    if (string.IsNullOrWhiteSpace(baseUrl))
-    {
-        var scheme = context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? context.Request.Scheme;
-        baseUrl = $"{scheme}://{context.Request.Host}";
-    }
+    if (string.IsNullOrWhiteSpace(baseUrl) && app.Environment.IsDevelopment())
+        baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
 
-    await auth.ForgotPasswordAsync(request.Email, baseUrl);
+    if (string.IsNullOrWhiteSpace(baseUrl))
+        app.Logger.LogError("DOCUMENTED_PUBLIC_URL is not set, so password reset emails are disabled.");
+    else
+        await auth.ForgotPasswordAsync(request.Email, baseUrl);
 
     // Same answer whether or not the email has an account.
     return Results.Ok(new { message = "If an account exists for that email, a reset link has been sent." });
