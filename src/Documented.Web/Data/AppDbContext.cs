@@ -10,6 +10,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentItem> DocumentItems => Set<DocumentItem>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -18,6 +19,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<AppUser>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<Document>().HasIndex(x => new { x.TenantId, x.Number }).IsUnique();
         modelBuilder.Entity<Document>().HasIndex(x => x.PublicToken).IsUnique();
+        modelBuilder.Entity<PasswordResetToken>().HasIndex(x => x.TokenHash).IsUnique();
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Document>().Property(x => x.Discount).HasPrecision(18, 2);
         modelBuilder.Entity<Document>().Property(x => x.Subtotal).HasPrecision(18, 2);

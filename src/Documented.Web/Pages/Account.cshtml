@@ -25,6 +25,19 @@
             <label>Email<input name="email" type="email" required placeholder="name@example.com" /></label>
             <label>Password<input name="password" type="password" required placeholder="Your password" /></label>
             <button class="primary" type="submit">Login</button>
+            <button type="button" class="link-button" id="forgotLink">Forgot password?</button>
+        </form>
+
+        <form id="forgotForm" class="hidden">
+            <label>Email<input name="email" type="email" required placeholder="name@example.com" /></label>
+            <button class="primary" type="submit">Send reset link</button>
+            <button type="button" class="link-button" id="backToLoginFromForgot">Back to login</button>
+        </form>
+
+        <form id="resetForm" class="hidden">
+            <label>New password<input name="password" type="password" minlength="8" required placeholder="At least 8 characters" /></label>
+            <label>Confirm new password<input name="confirm" type="password" minlength="8" required placeholder="Repeat the new password" /></label>
+            <button class="primary" type="submit">Save new password</button>
         </form>
 
         <div id="authMessage" class="message" aria-live="polite"></div>

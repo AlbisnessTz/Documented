@@ -1,12 +1,35 @@
 using Documented.Web.Data;
 using Documented.Web.Services;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+
+// Slows down password guessing and reset-email abuse. Behind Render's proxy the real
+// client address arrives in X-Forwarded-For.
+builder.Services.AddRateLimiter(limiter =>
+{
+    limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    limiter.AddPolicy("auth", context =>
+    {
+        var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var client = !string.IsNullOrWhiteSpace(forwarded)
+            ? forwarded.Split(',')[0].Trim()
+            : context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(client, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -39,6 +62,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(connectionString);
 });
 
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<TenantService>();
 builder.Services.AddScoped<DocumentService>();
@@ -51,6 +75,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+    SchemaUpgrader.Apply(db, provider.Equals("postgres", StringComparison.OrdinalIgnoreCase));
 }
 
 if (!app.Environment.IsDevelopment())
@@ -62,6 +87,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 
 app.Use(async (context, next) =>
@@ -100,12 +126,40 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, AuthService au
     return result.Success
         ? Results.Ok(new { message = "Account created." })
         : Results.BadRequest(new { error = result.Error });
-});
+}).RequireRateLimiting("auth");
 
 app.MapPost("/api/auth/login", async (LoginRequest request, AuthService auth) =>
     await auth.LoginAsync(request.Email, request.Password)
         ? Results.Ok(new { message = "Logged in." })
-        : Results.BadRequest(new { error = "Invalid email or password." }));
+        : Results.BadRequest(new { error = "Invalid email or password." }))
+    .RequireRateLimiting("auth");
+
+app.MapPost("/api/auth/forgot", async (
+    ForgotPasswordRequest request,
+    AuthService auth,
+    HttpContext context,
+    IConfiguration config) =>
+{
+    var baseUrl = config["DOCUMENTED_PUBLIC_URL"];
+    if (string.IsNullOrWhiteSpace(baseUrl))
+    {
+        var scheme = context.Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? context.Request.Scheme;
+        baseUrl = $"{scheme}://{context.Request.Host}";
+    }
+
+    await auth.ForgotPasswordAsync(request.Email, baseUrl);
+
+    // Same answer whether or not the email has an account.
+    return Results.Ok(new { message = "If an account exists for that email, a reset link has been sent." });
+}).RequireRateLimiting("auth");
+
+app.MapPost("/api/auth/reset", async (ResetPasswordRequest request, AuthService auth) =>
+{
+    var result = await auth.ResetPasswordAsync(request.Token, request.Password);
+    return result.Success
+        ? Results.Ok(new { message = "Password updated. You can log in now." })
+        : Results.BadRequest(new { error = result.Error });
+}).RequireRateLimiting("auth");
 
 app.MapPost("/api/auth/logout", async (AuthService auth) =>
 {
@@ -201,6 +255,8 @@ static string NormalizePostgresConnectionString(string raw)
 
 public sealed record RegisterRequest(string BusinessName, string Email, string Password);
 public sealed record LoginRequest(string Email, string Password);
+public sealed record ForgotPasswordRequest(string Email);
+public sealed record ResetPasswordRequest(string Token, string Password);
 
 public sealed record BusinessUpdateRequest(
     string BusinessName,
