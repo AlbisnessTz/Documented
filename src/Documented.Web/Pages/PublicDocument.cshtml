@@ -143,6 +143,19 @@ else
                     <div><span>Discount</span><strong>@Model.Document.Discount.ToString("N2")</strong></div>
                 }
                 <div class="grand"><span>GRAND TOTAL</span><strong>@Model.Document.Total.ToString("N2")</strong></div>
+                @if (Model.Document.DocumentType == "Invoice" || Model.Document.DocumentType == "Receipt")
+                {
+                    var balance = Model.Document.Total - Model.Document.AmountPaid;
+                    <div><span>Paid</span><strong>@Model.Document.AmountPaid.ToString("N2")</strong></div>
+                    if (balance > 0)
+                    {
+                        <div class="balance due"><span>BALANCE DUE</span><strong>@balance.ToString("N2")</strong></div>
+                    }
+                    else
+                    {
+                        <div class="balance paid"><span>PAID IN FULL</span><strong>&#10003;</strong></div>
+                    }
+                }
             </div>
         </div>
 

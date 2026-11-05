@@ -12,7 +12,7 @@ h1{font-size:clamp(2rem,5vw,4rem);line-height:1.02;margin:.15em 0}.page-head h1{
 .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.status-card{display:flex;align-items:center;gap:12px;background:rgba(17,21,29,.8);border:1px solid var(--line);padding:14px 16px;border-radius:14px;min-width:240px}.status-card strong{display:block}.status-card small{display:block;color:var(--muted);margin-top:3px}.status-dot{width:10px;height:10px;border-radius:50%;background:#777;box-shadow:0 0 0 5px rgba(255,255,255,.05)}
 .status-dot.online{background:#46d39a}.status-dot.offline{background:#ffb347}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}label{display:grid;gap:7px;color:var(--muted);font-size:.86rem}label.wide{grid-column:1/-1}
-input,textarea{width:100%;background:#0b0f15;border:1px solid var(--line);color:var(--text);padding:12px 13px;border-radius:10px;outline:none}input:focus,textarea:focus{border-color:var(--accent)}
+input,textarea,select{width:100%;background:#0b0f15;border:1px solid var(--line);color:var(--text);padding:12px 13px;border-radius:10px;outline:none}input:focus,textarea:focus{border-color:var(--accent)}
 .items-head,.item-row{display:grid;grid-template-columns:1.5fr .45fr .75fr .75fr 38px;gap:8px;align-items:center}.items-head{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}.item-row{margin-bottom:8px}.item-row input{padding:10px}.item-total{text-align:right;padding-right:8px}.remove-item{border:0;background:transparent;color:#ff7285;font-size:1.2rem;cursor:pointer}
 button,.ghost,.outline{font:inherit;cursor:pointer;border-radius:10px;padding:11px 15px;border:1px solid var(--line);background:#151b25;color:var(--text)}button:hover,.ghost:hover,.outline:hover{transform:translateY(-1px);border-color:#3b4656}.primary{border:0;background:linear-gradient(135deg,var(--accent2),var(--accent));color:white;font-weight:800}.ghost{background:transparent}.outline{background:transparent;margin:4px 0 18px}
 .totals-box{margin:12px 0 18px;padding:14px;border:1px solid var(--line);border-radius:12px;display:grid;gap:10px}.totals-box label{max-width:220px}.totals-box>div{display:flex;justify-content:space-between;align-items:center}.totals-box .grand{padding-top:10px;border-top:1px solid var(--line);font-size:1.2rem}
@@ -43,3 +43,12 @@ select:focus{border-color:var(--accent)}
 .invoice.worldlight .invoice-top{border-bottom:0;padding-bottom:16px}.invoice.worldlight .invoice-meta strong{color:#4a5c84}.invoice.worldlight .invoice th{background:#dfe3e8}.invoice.worldlight .bill-to strong,.invoice.worldlight .payment-box>h3{background:#3e527f;color:#fff;padding:7px 10px;margin:-16px -16px 10px}.invoice.worldlight .payment-box{border-radius:0}.invoice.worldlight .summary .grand{border-top:0;background:#ffd42a;padding:12px 10px;font-size:1.15rem}.invoice.worldlight .invoice-footer{font-style:italic}
 
 .link-button{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:10px 0 0;font:inherit;width:100%;text-align:center}.link-button:hover{color:var(--text)}
+
+.summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}.summary-cards:empty{display:none}
+.stat{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel);display:grid;gap:4px}.stat small{color:var(--muted)}.stat strong{font-size:1.2rem}.stat.due strong{color:#ffb454}
+.debtors-box{grid-column:1/-1;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}.debtors-box summary{cursor:pointer;font-weight:700}
+.debtors{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}.debtors li{display:flex;justify-content:space-between;gap:12px}
+.document-item{display:grid;gap:8px}.doc-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.badge{font-size:.78rem;font-weight:700;border-radius:999px;padding:4px 10px}.badge.paid{background:rgba(70,211,154,.15);color:#46d39a}.badge.due{background:rgba(255,180,84,.15);color:#ffb454}
+button.small{padding:6px 12px;font-size:.85rem;width:auto}
+.invoice .summary .balance.due{color:#b3261e;font-weight:800}.invoice .summary .balance.paid{color:#1b7f4b;font-weight:800}

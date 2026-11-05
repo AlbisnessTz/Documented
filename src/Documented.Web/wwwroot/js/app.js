@@ -121,14 +121,96 @@ window.DocumentedApp = (() => {
       $("#items").innerHTML = "";
       createItem();
       recalculate();
+      updateFormForType();
     });
     $("#refreshDocs")?.addEventListener("click", loadDocuments);
     $("#documentForm")?.addEventListener("submit", submitDocument);
+    $("#documentType")?.addEventListener("change", updateFormForType);
+    $("#documentsList")?.addEventListener("click", onDocumentsClick);
+    updateFormForType();
 
     createItem();
     await syncOfflineQueue();
     await loadDocuments();
     registerServiceWorker();
+  }
+
+  const typeLabels = {
+    Proforma: "Proforma invoice",
+    Quotation: "Quotation",
+    Invoice: "Invoice",
+    Receipt: "Receipt"
+  };
+
+  function selectedType() {
+    return $("#documentType")?.value || "Proforma";
+  }
+
+  function updateFormForType() {
+    const type = selectedType();
+    const label = typeLabels[type] || type;
+    const title = $("#formTitle");
+    const button = $("#submitDocument");
+    if (title) title.textContent = label;
+    if (button) button.textContent = "Create " + label.toLowerCase();
+    $("#paymentMethodField")?.classList.toggle("hidden", type !== "Receipt");
+  }
+
+  async function loadSummary() {
+    const target = $("#summaryCards");
+    if (!target || !navigator.onLine) return;
+    try {
+      const response = await fetch("/api/reports/summary", { cache: "no-store" });
+      if (!response.ok) throw new Error();
+      const s = await response.json();
+      const debtors = s.debtors.length
+        ? `<ul class="debtors">${s.debtors.map(d => `<li><span>${escapeHtml(d.customerName)}${d.customerPhone ? " · " + escapeHtml(d.customerPhone) : ""}</span><strong>${money(d.outstanding)}</strong></li>`).join("")}</ul>`
+        : '<p class="muted">Nobody owes you money right now.</p>';
+      target.innerHTML = `
+        <div class="stat"><small>Sales this month</small><strong>${money(s.salesThisMonth)}</strong></div>
+        <div class="stat"><small>Collected this month</small><strong>${money(s.collectedThisMonth)}</strong></div>
+        <div class="stat due"><small>Customers owe you</small><strong>${money(s.outstandingTotal)}</strong></div>
+        <div class="stat"><small>Documents this month</small><strong>${s.documentsThisMonth}</strong></div>
+        <details class="debtors-box"><summary>Who owes you</summary>${debtors}</details>`;
+    } catch {
+      target.innerHTML = "";
+    }
+  }
+
+  async function onDocumentsClick(event) {
+    const button = event.target.closest("[data-pay]");
+    if (!button) return;
+
+    if (!navigator.onLine) {
+      window.alert("Recording a payment needs an internet connection.");
+      return;
+    }
+
+    const balance = Number(button.dataset.balance || 0);
+    const amountText = window.prompt(`Amount received (balance ${money(balance)}):`, String(balance));
+    if (amountText === null) return;
+
+    const amount = Number(amountText.replace(/,/g, ""));
+    if (!(amount > 0)) {
+      window.alert("Enter an amount greater than zero.");
+      return;
+    }
+
+    const method = window.prompt("Paid by (Cash, M-Pesa, Tigo Pesa, Airtel Money, Bank):", "Cash");
+    if (method === null) return;
+
+    try {
+      const response = await fetch(`/api/documents/${button.dataset.pay}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, method })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not record the payment.");
+      await loadDocuments();
+    } catch (error) {
+      window.alert(error.message);
+    }
   }
 
   async function submitDocument(event) {
@@ -137,7 +219,8 @@ window.DocumentedApp = (() => {
     if (!items.length) return setMessage("#formMessage", "Add at least one item.", "error");
 
     const payload = {
-      documentType: "Proforma",
+      documentType: selectedType(),
+      paymentMethod: selectedType() === "Receipt" ? ($("#paymentMethod")?.value || "Cash") : null,
       customerName: $("[name=customerName]").value.trim(),
       customerPhone: $("[name=customerPhone]").value.trim(),
       customerEmail: $("[name=customerEmail]").value.trim(),
@@ -185,11 +268,28 @@ window.DocumentedApp = (() => {
       const response = await fetch("/api/documents?limit=25");
       if (!response.ok) throw new Error();
       const docs = await response.json();
-      target.innerHTML = docs.length ? docs.map(doc => `
-        <a class="document-card" href="/d/${doc.publicToken}" target="_blank">
-          <div><strong>${escapeHtml(doc.number)}</strong><small>${escapeHtml(doc.customerName)}</small></div>
-          <div class="amount">${money(doc.total)}<br><small>${new Date(doc.createdAtUtc).toLocaleDateString()}</small></div>
-        </a>`).join("") : '<div class="empty">No documents yet.</div>';
+      target.innerHTML = docs.length ? docs.map(doc => {
+        const balance = Math.max(0, Number(doc.total) - Number(doc.amountPaid || 0));
+        let status = "";
+        if (doc.documentType === "Receipt") status = '<span class="badge paid">Paid</span>';
+        if (doc.documentType === "Invoice") {
+          status = balance > 0
+            ? `<span class="badge due">Owes ${money(balance)}</span>`
+            : '<span class="badge paid">Paid</span>';
+        }
+        const pay = doc.documentType === "Invoice" && balance > 0
+          ? `<button type="button" class="outline small" data-pay="${doc.id}" data-balance="${balance}">Record payment</button>`
+          : "";
+        return `
+        <div class="document-item">
+          <a class="document-card" href="/d/${doc.publicToken}" target="_blank">
+            <div><strong>${escapeHtml(doc.number)}</strong><small>${escapeHtml(doc.documentType)} · ${escapeHtml(doc.customerName)}</small></div>
+            <div class="amount">${money(doc.total)}<br><small>${new Date(doc.createdAtUtc).toLocaleDateString()}</small></div>
+          </a>
+          ${status || pay ? `<div class="doc-actions">${status}${pay}</div>` : ""}
+        </div>`;
+      }).join("") : '<div class="empty">No documents yet.</div>';
+      loadSummary();
     } catch {
       target.innerHTML = '<div class="empty">Could not load documents.</div>';
     }

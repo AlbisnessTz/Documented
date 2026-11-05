@@ -29,7 +29,20 @@ public static class SchemaUpgrader
         """
         CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_TokenHash"
             ON "PasswordResetTokens" ("TokenHash")
+        """,
         """
+        CREATE TABLE IF NOT EXISTS "Payments" (
+            "Id" uuid NOT NULL PRIMARY KEY,
+            "TenantId" uuid NOT NULL,
+            "DocumentId" uuid NOT NULL REFERENCES "Documents" ("Id") ON DELETE CASCADE,
+            "Amount" numeric(18,2) NOT NULL,
+            "Method" text NOT NULL,
+            "Note" text NOT NULL,
+            "PaidAtUtc" timestamp with time zone NOT NULL
+        )
+        """,
+        """CREATE INDEX IF NOT EXISTS "IX_Payments_DocumentId" ON "Payments" ("DocumentId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_Payments_TenantId" ON "Payments" ("TenantId")"""
     ];
 
     private static readonly string[] Sqlite =
@@ -48,6 +61,20 @@ public static class SchemaUpgrader
         """
         CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_TokenHash"
             ON "PasswordResetTokens" ("TokenHash")
+        """,
         """
+        CREATE TABLE IF NOT EXISTS "Payments" (
+            "Id" TEXT NOT NULL CONSTRAINT "PK_Payments" PRIMARY KEY,
+            "TenantId" TEXT NOT NULL,
+            "DocumentId" TEXT NOT NULL,
+            "Amount" TEXT NOT NULL,
+            "Method" TEXT NOT NULL,
+            "Note" TEXT NOT NULL,
+            "PaidAtUtc" TEXT NOT NULL,
+            CONSTRAINT "FK_Payments_Documents_DocumentId" FOREIGN KEY ("DocumentId") REFERENCES "Documents" ("Id") ON DELETE CASCADE
+        )
+        """,
+        """CREATE INDEX IF NOT EXISTS "IX_Payments_DocumentId" ON "Payments" ("DocumentId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_Payments_TenantId" ON "Payments" ("TenantId")"""
     ];
 }

@@ -23,7 +23,8 @@ public sealed record DocumentListDto(
     string PublicToken,
     string CustomerName,
     decimal Total,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    decimal AmountPaid);
 
 public sealed record DocumentItemDto(
     string Description,
@@ -55,4 +56,20 @@ public sealed record DocumentDetailsDto(
     decimal Total,
     DateTime CreatedAtUtc,
     BusinessProfileDto Business,
-    List<DocumentItemDto> Items);
+    List<DocumentItemDto> Items,
+    decimal AmountPaid);
+
+public sealed record PaymentResultDto(decimal AmountPaid, decimal Balance);
+
+public sealed record DebtorDto(
+    string CustomerName,
+    string CustomerPhone,
+    decimal Outstanding,
+    int InvoiceCount);
+
+public sealed record ReportSummaryDto(
+    decimal SalesThisMonth,
+    decimal CollectedThisMonth,
+    decimal OutstandingTotal,
+    int DocumentsThisMonth,
+    List<DebtorDto> Debtors);

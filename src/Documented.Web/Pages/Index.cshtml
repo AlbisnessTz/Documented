@@ -7,7 +7,7 @@
     <div>
         <p class="eyebrow">Business document workspace</p>
         <h1>Create professional documents from anywhere.</h1>
-        <p class="muted">Start with proforma invoices. The same foundation will support quotations and invoices for many businesses.</p>
+        <p class="muted">Create proforma invoices, quotations, invoices and receipts, record payments, and see who still owes you.</p>
     </div>
     <div class="status-card">
         <span id="connectionDot" class="status-dot"></span>
@@ -18,18 +18,38 @@
     </div>
 </section>
 
+<section class="summary-cards" id="summaryCards" aria-live="polite"></section>
+
 <section class="grid-2">
     <div class="panel">
         <div class="panel-head">
             <div>
                 <p class="eyebrow">New document</p>
-                <h2>Proforma invoice</h2>
+                <h2 id="formTitle">Proforma invoice</h2>
             </div>
             <button type="button" class="ghost" id="clearDraft">Clear</button>
         </div>
 
         <form id="documentForm">
             <div class="form-grid">
+                <label>Document type
+                    <select id="documentType" name="documentType">
+                        <option value="Proforma">Proforma invoice</option>
+                        <option value="Quotation">Quotation</option>
+                        <option value="Invoice">Invoice (customer pays later)</option>
+                        <option value="Receipt">Receipt (paid now)</option>
+                    </select>
+                </label>
+                <label id="paymentMethodField" class="hidden">Paid by
+                    <select id="paymentMethod" name="paymentMethod">
+                        <option>Cash</option>
+                        <option>M-Pesa</option>
+                        <option>Tigo Pesa</option>
+                        <option>Airtel Money</option>
+                        <option>HaloPesa</option>
+                        <option>Bank transfer</option>
+                    </select>
+                </label>
                 <label>Customer name<input name="customerName" required placeholder="Customer or company" /></label>
                 <label>Customer phone<input name="customerPhone" placeholder="+255..." /></label>
                 <label>Customer email<input name="customerEmail" type="email" /></label>
@@ -50,7 +70,7 @@
 
             <label>Notes<textarea id="notes" rows="3" placeholder="Optional notes or payment terms"></textarea></label>
 
-            <button class="primary" type="submit">Create proforma</button>
+            <button class="primary" type="submit" id="submitDocument">Create proforma</button>
             <div id="formMessage" class="message" aria-live="polite"></div>
         </form>
     </div>
