@@ -7,13 +7,14 @@ services:
     envVars:
       - key: DOCUMENTED_DB_PROVIDER
         value: postgres
+      # Connection string of an external Postgres database (for example Neon), set in the
+      # Render dashboard because it contains a password. Render's own free Postgres expires
+      # after 30 days, so this blueprint no longer creates one.
       - key: DOCUMENTED_CONNECTION
-        fromDatabase:
-          name: documented-db
-          property: connectionString
+        sync: false
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
-      # Set these three in the Render dashboard (they are secrets or site-specific).
+      # Set these in the Render dashboard (they are secrets or site-specific).
       # DOCUMENTED_PUBLIC_URL is the site address used in password reset links,
       # for example https://your-service.onrender.com
       - key: DOCUMENTED_PUBLIC_URL
@@ -22,7 +23,3 @@ services:
         sync: false
       - key: MAIL_FROM_EMAIL
         sync: false
-
-databases:
-  - name: documented-db
-    plan: free
