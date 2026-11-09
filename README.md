@@ -65,6 +65,8 @@ MAIL_FROM_NAME=Documented        (optional)
 
 ## Hosting notes
 
-- Render's free PostgreSQL database expires 30 days after it is created and is deleted 14 days later. Check the expiry date in the Render dashboard, and move to a paid database or another Postgres host before it passes.
+- Use an external Postgres database such as Neon's free plan and set its connection string (it must include `sslmode=require`) as `DOCUMENTED_CONNECTION` in the Render dashboard, with `DOCUMENTED_DB_PROVIDER=postgres`. Render's own free Postgres expires 30 days after creation, is deleted 14 days later, and has no backups, which is why the blueprint no longer creates one.
+- Neon's free compute sleeps after 5 minutes idle, so the first request after a quiet period is slower.
+- Free databases are not backed up for you. Export regularly with `pg_dump` if the data matters.
 - The free web service sleeps after 15 minutes without traffic and takes about a minute to wake.
 - New tables are added to existing databases by `SchemaUpgrader` at startup; it is safe to run repeatedly.
